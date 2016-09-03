@@ -120,7 +120,7 @@ class TSL2561:
         else:
             b = 0
             m = 0
-        return (max(0, channel0 * b - channel1 * m) + (1 << 13)) / 16384
+        return (max(0, channel0 * b - channel1 * m) + 8192) / 16384
 
     def read(self, autogain=False, raw=False):
         broadband, ir = self._read()
