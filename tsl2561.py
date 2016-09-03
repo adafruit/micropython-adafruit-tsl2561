@@ -110,7 +110,7 @@ class TSL2561:
         clip = _INTEGRATION_TIME[self._integration_time][2]
         if broadband > clip or ir > clip:
             raise ValueError("sensor saturated")
-        scale = _INTEGRATION_TIME[self._integration_time][5] // self._gain
+        scale = _INTEGRATION_TIME[self._integration_time][5] / self._gain
         channel0 = (broadband * scale) / 1024
         channel1 = (ir * scale) / 1024
         ratio = (((channel1 * 1024) / channel0 if channel0 else 0) + 1) / 2
