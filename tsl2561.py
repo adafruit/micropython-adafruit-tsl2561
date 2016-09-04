@@ -157,7 +157,11 @@ class TSL2561:
         if min_value is None and max_value is None and cycles is None:
             min_value = self._register16(_REGISTER_THRESHHOLD_MIN)
             max_value = self._register16(_REGISTER_THRESHHOLD_MAX)
-            cycles = self._register8(_REGISTER_INTERRUPT) & 0x0f
+            cycles = self._register8(_REGISTER_INTERRUPT)
+            if not cycles & _INTERRUPT_LEVEL:
+                cycles = -1
+            else:
+                cycles &= 0x0f
             return cycles, min_value, max_value
         was_active = self.active()
         self.active(True)
