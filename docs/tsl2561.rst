@@ -1,0 +1,101 @@
+`tsl2561` module
+****************
+
+.. module:: tsl2561
+
+TSL2561
+=======
+
+.. class:: TSL2561(i2c, address=0x39)
+
+    The basic class for handling the communication with the sensor.
+
+    The ``i2c`` parameter is an initialized I²C bus, and the optional address
+    specifies which sensor to connect to, if you have more than one and have
+    changed their addresses with the ``Addr`` pin.
+
+    May raise a ``RuntimeError`` if connected to a wrong model of sensor.
+
+    .. method:: active([True|False])
+
+        Get or set the power status of the sensor.
+
+        If called without any parameters, returns the current status (``True``
+        for active, ``False`` for inactive). If called with a parameter, sets
+        the status.
+
+        The functions that require the sensor to be active will activate it
+        for the time necessary, and then return it to the previous state.
+
+    .. method:: gain([1|16])
+
+        Get or set the measurement gain of the sensor.
+
+    .. method:: integration_time([0|13|101|402])
+
+        Get or set the integraton time for measurements in milliseconds.
+
+        When set to 0, manual integration time is enabled.
+
+        Note that with manual integration time, it's not possible to compute
+        the lux values or use autogain.
+
+    .. method:: sensor_id()
+
+        Return the internal ID of the sensor, describing its model and
+        revision number.
+
+    .. method:: read(autogain=False, raw=False)
+
+        Read a measurement from the sensor.
+
+        If ``raw`` is ``False``, returns a single floating point value denoting
+        luminosity in lux. If it's ``True``, returns a pair of integer numbers,
+        corresponding to the readings of the broadband and infra-red channels,
+        respectively.
+
+        If ``autogain`` is set to ``True``, the sensor may repeat the
+        measurement with a different gain setting if the result is out of
+        bounds for it.
+
+        May raise a ``ValueError`` if the sensor is saturated with
+        ``raw=False``.
+
+        If at the moment of calling this method, the sensor is inactive,
+        it will be activated, the method will block for a time necessary for
+        the sensor to make the measurement, and then return and deactivate
+        the sensor. If the sensor was active, no waiting takes place -- it's
+        up to the user to make sure the sensor had enough time to make the
+        measurement.
+
+    .. method:: interrupt(cycles=None, min_value=None, max_value=None)
+
+        Get or set the interrupt settings.
+
+        If called without arguments, returns a triple of values.
+
+        The ``cycles`` argument specifies how many cycles are needed to trigger
+        the interrupt. When set to 0, each measurement will do it. If set to
+        1-15, the interrupt will be triggered only when so many measurements
+        in a row fall out of bounds. When set to -1, interrupts are disabled.
+
+        The ``min_value`` and ``max_value`` specify the window for the
+        broadband channel to fit in.
+
+        Whenever the interrupt is activated, the ``Int`` pin of the sensor
+        will be pulled low and stay in that state until cleared. You can
+        connect it to one of the pins and set a pin interrupt to detect that
+        event.
+
+        Note that for the interrupt pin to work, the sensor must stay active.
+
+    .. method:: clear_interrupt()
+
+        Clears the interrupt state, bringing the ``Int`` pin back to neutral.
+
+Classes for Different Packages
+==============================
+
+There are also ``TSL2561T``, ``TSL2561FN``, ``TSL2561CL`` and ``TSL2561CS``
+classes for versions of the sensor using different packages. They are the same,
+except for ``TSL2561CS``, which uses different scale for lux computations.
