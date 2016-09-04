@@ -46,12 +46,12 @@ class TSL2561:
         self.i2c = i2c
         self.address = address
         sensor_id = self.sensor_id()
-        if sensor_id & 0xf8 != 0x08:
+        if not sensor_id & 0x10:
             raise RuntimeError("bad sensor id 0x{:x}".format(sensor_id))
+        self._active = False
         self._gain = 1
         self._integration_time = 13
         self._update_gain_and_time()
-        self.active(False)
 
     def _register16(self, register, value=None):
         register |= _COMMAND_BIT | _WORD_BIT
@@ -71,9 +71,11 @@ class TSL2561:
     def active(self, value=None):
         if value is None:
             return self._active
-        self._active = value
-        self._register8(_REGISTER_CONTROL,
-            _CONTROL_POWERON if value else _CONTROL_POWEROFF)
+        value = bool(value)
+        if value != self._active:
+            self._active = value
+            self._register8(_REGISTER_CONTROL,
+                _CONTROL_POWERON if value else _CONTROL_POWEROFF)
 
     def gain(self, value=None):
         if value is None:
@@ -92,26 +94,25 @@ class TSL2561:
         self._update_gain_and_time()
 
     def _update_gain_and_time(self):
+        was_active = self.active()
+        self.active(True)
         self._register8(_REGISTER_TIMING,
             _INTEGRATION_TIME[self._integration_time][0] |
             {1: 0x00, 16: 0x10}[self._gain]);
+        self.active(was_active)
 
     def sensor_id(self):
         return self._register8(_REGISTER_ID)
 
-    def _read(self, wait=True):
-        if wait:
-            raise ValueError(
-                "manual integration time mode doesn't allow wait")
-            self.active(True)
-        try:
-            if wait:
-                time.sleep_ms(_INTEGRATION_TIME[self._integration_time][1])
-            broadband = self._register16(_REGISTER_CHANNEL0)
-            ir = self._register16(_REGISTER_CHANNEL1)
-        finally:
-            if wait:
-                self.active(False)
+    def _read(self):
+        was_active = self.active()
+        self.active(True)
+        if not was_active:
+            # if the sensor was off, wait for measurement
+            time.sleep_ms(_INTEGRATION_TIME[self._integration_time][1])
+        broadband = self._register16(_REGISTER_CHANNEL0)
+        ir = self._register16(_REGISTER_CHANNEL1)
+        self.active(was_active)
         return broadband, ir
 
     def _lux(self, channels):
@@ -134,8 +135,8 @@ class TSL2561:
             m = 0
         return (max(0, channel0 * b - channel1 * m) + 8192) / 16384
 
-    def read(self, autogain=False, raw=False, wait=True):
-        broadband, ir = self._read(wait)
+    def read(self, autogain=False, raw=False):
+        broadband, ir = self._read()
         if autogain:
             if self._integration_time == 0:
                 raise ValueError(
@@ -157,7 +158,9 @@ class TSL2561:
             min_value = self._register16(_REGISTER_THRESHHOLD_MIN)
             max_value = self._register16(_REGISTER_THRESHHOLD_MAX)
             cycles = self._register8(_REGISTER_INTERRUPT) & 0x0f
-            return min_value, max_value, cycles
+            return cycles, min_value, max_value
+        was_active = self.active()
+        self.active(True)
         if min_value is not None:
             self._register16(_REGISTER_THRESHHOLD_MIN, int(min_value))
         if max_value is not None:
@@ -168,9 +171,11 @@ class TSL2561:
             else:
                 self._register8(_REGISTER_INTERRUPT,
                     min(15, max(0, int(cycles))) | _INTERRUPT_LEVEL)
+        self.active(was_active)
 
     def clear_interrupt(self):
-        self.i2c.writeto_mem(self.address, _CLEAR_BIT | _REGISTER_CONTROL, 0)
+        self.i2c.writeto_mem(self.address,
+            _CLEAR_BIT | _REGISTER_CONTROL, b'\x00')
 
 
 # Those packages are identical.
