@@ -4,9 +4,13 @@ import ustruct
 
 _COMMAND_BIT = const(0x80)
 _WORD_BIT = const(0x20)
+_CLEAR_BIT = const(0x40)
 
 _REGISTER_CONTROL = const(0x00)
 _REGISTER_TIMING = const(0x01)
+_REGISTER_THRESHHOLD_MIN = const(0x02)
+_REGISTER_THRESHHOLD_MAX = const(0x04)
+_REGISTER_INTERRUPT = const(0x06)
 _REGISTER_ID = const(0x0A)
 _REGISTER_CHANNEL0 = const(0x0C)
 _REGISTER_CHANNEL1 = const(0x0E)
@@ -14,11 +18,15 @@ _REGISTER_CHANNEL1 = const(0x0E)
 _CONTROL_POWERON = const(0x03)
 _CONTROL_POWEROFF = const(0x00)
 
+_INTERRUPT_NONE = const(0x00)
+_INTERRUPT_LEVEL = const(0x10)
+
 _INTEGRATION_TIME = {
 #  time     hex     wait    clip    min     max     scale
-    13:     (0x00,  15,    4900,   100,    4850,    0x7517),
-    101:    (0x01,  120,   37000,  200,    36000,   0x0FE7),
-    402:    (0x02,  450,   65000,  500,    63000,   1 << 10),
+    13:     (0x00,  15,     4900,   100,    4850,   0x7517),
+    101:    (0x01,  120,    37000,  200,    36000,  0x0FE7),
+    402:    (0x02,  450,    65000,  500,    63000,  1 << 10),
+    0:      (0x03,  0,      0,      0,      0,      0),
 }
 
 
@@ -38,14 +46,15 @@ class TSL2561:
         self.i2c = i2c
         self.address = address
         sensor_id = self.sensor_id()
-        if sensor_id != 0x0a:
-            raise RuntimeError("bad sensor id {:x}".format(sensor_id))
+        if sensor_id & 0xf8 != 0x08:
+            raise RuntimeError("bad sensor id 0x{:x}".format(sensor_id))
         self._gain = 1
         self._integration_time = 13
         self._update_gain_and_time()
         self.active(False)
 
     def _register16(self, register, value=None):
+        register |= _COMMAND_BIT | _WORD_BIT
         if value is None:
             data = self.i2c.readfrom_mem(self.address, register, 2)
             return ustruct.unpack('<H', data)[0]
@@ -53,6 +62,7 @@ class TSL2561:
         self.i2c.writeto_mem(self.address, register, data)
 
     def _register8(self, register, value=None):
+        register |= _COMMAND_BIT
         if value is None:
             return self.i2c.readfrom_mem(self.address, register, 1)[0]
         data = ustruct.pack('<B', value)
@@ -62,7 +72,7 @@ class TSL2561:
         if value is None:
             return self._active
         self._active = value
-        self._register8(_COMMAND_BIT | _REGISTER_CONTROL,
+        self._register8(_REGISTER_CONTROL,
             _CONTROL_POWERON if value else _CONTROL_POWEROFF)
 
     def gain(self, value=None):
@@ -77,35 +87,37 @@ class TSL2561:
         if value is None:
             return self._integration_time
         if value not in _INTEGRATION_TIME:
-            raise ValueError("integration time must be 13ms, 101ms or 402ms")
+            raise ValueError("integration time must be 0, 13ms, 101ms or 402ms")
         self._integration_time = value
         self._update_gain_and_time()
 
     def _update_gain_and_time(self):
-        self.active(True)
-        try:
-            self._register8(_COMMAND_BIT | _REGISTER_TIMING,
-                _INTEGRATION_TIME[self._integration_time][0] |
-                {1: 0x00, 16: 0x10}[self._gain]);
-        finally:
-            self.active(False)
+        self._register8(_REGISTER_TIMING,
+            _INTEGRATION_TIME[self._integration_time][0] |
+            {1: 0x00, 16: 0x10}[self._gain]);
 
     def sensor_id(self):
         return self._register8(_REGISTER_ID)
 
-    def _read(self):
-        self.active(True)
+    def _read(self, wait=True):
+        if wait:
+            raise ValueError(
+                "manual integration time mode doesn't allow wait")
+            self.active(True)
         try:
-            time.sleep_ms(_INTEGRATION_TIME[self._integration_time][1])
-            broadband = self._register16(
-                _COMMAND_BIT | _WORD_BIT | _REGISTER_CHANNEL0)
-            ir = self._register16(
-                _COMMAND_BIT | _WORD_BIT | _REGISTER_CHANNEL1)
+            if wait:
+                time.sleep_ms(_INTEGRATION_TIME[self._integration_time][1])
+            broadband = self._register16(_REGISTER_CHANNEL0)
+            ir = self._register16(_REGISTER_CHANNEL1)
         finally:
-            self.active(False)
+            if wait:
+                self.active(False)
         return broadband, ir
 
     def _lux(self, channels):
+        if self._integration_time == 0:
+            raise ValueError(
+                "can't calculate lux with manual integration time")
         broadband, ir = channels
         clip = _INTEGRATION_TIME[self._integration_time][2]
         if broadband > clip or ir > clip:
@@ -122,9 +134,12 @@ class TSL2561:
             m = 0
         return (max(0, channel0 * b - channel1 * m) + 8192) / 16384
 
-    def read(self, autogain=False, raw=False):
-        broadband, ir = self._read()
+    def read(self, autogain=False, raw=False, wait=True):
+        broadband, ir = self._read(wait)
         if autogain:
+            if self._integration_time == 0:
+                raise ValueError(
+                    "can't do autogain with manual integration time")
             new_gain = self._gain
             if broadband < _INTEGRATION_TIME[self._integration_time][3]:
                 new_gain = 16
@@ -136,6 +151,26 @@ class TSL2561:
         if raw:
             return broadband, ir
         return self._lux((broadband, ir))
+
+    def interrupt(self, cycles=None, min_value=None, max_value=None):
+        if min_value is None and max_value is None and cycles is None:
+            min_value = self._register16(_REGISTER_THRESHHOLD_MIN)
+            max_value = self._register16(_REGISTER_THRESHHOLD_MAX)
+            cycles = self._register8(_REGISTER_INTERRUPT) & 0x0f
+            return min_value, max_value, cycles
+        if min_value is not None:
+            self._register16(_REGISTER_THRESHHOLD_MIN, int(min_value))
+        if max_value is not None:
+            self._register16(_REGISTER_THRESHHOLD_MAX, int(max_value))
+        if cycles is not None:
+            if cycles == -1:
+                self._register8(_REGISTER_INTERRUPT, _INTERRUPT_NONE)
+            else:
+                self._register8(_REGISTER_INTERRUPT,
+                    min(15, max(0, int(cycles))) | _INTERRUPT_LEVEL)
+
+    def clear_interrupt(self):
+        self.i2c.writeto_mem(self.address, _CLEAR_BIT | _REGISTER_CONTROL, 0)
 
 
 # Those packages are identical.
