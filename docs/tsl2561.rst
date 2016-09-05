@@ -6,7 +6,7 @@
 TSL2561
 =======
 
-.. class:: TSL2561(i2c, address=0x39)
+.. class:: TSL2561(i2c, [address])
 
     The basic class for handling the communication with the sensor.
 
@@ -45,18 +45,18 @@ TSL2561
         Return the internal ID of the sensor, describing its model and
         revision number.
 
-    .. method:: read(autogain=False, raw=False)
+    .. method:: read([autogain], [raw])
 
         Read a measurement from the sensor.
 
-        If ``raw`` is ``False``, returns a single floating point value denoting
-        luminosity in lux. If it's ``True``, returns a pair of integer numbers,
-        corresponding to the readings of the broadband and infra-red channels,
-        respectively.
+        If ``raw`` is ``False`` (the default), returns a single floating point
+        value denoting luminosity in lux. If it's ``True``, returns a pair of
+        integer numbers, corresponding to the readings of the broadband and
+        infra-red channels, respectively.
 
-        If ``autogain`` is set to ``True``, the sensor may repeat the
-        measurement with a different gain setting if the result is out of
-        bounds for it.
+        If ``autogain`` is set to ``True`` (deafult ``False``), the sensor may
+        repeat the measurement with a different gain setting if the result is
+        out of bounds for it.
 
         May raise a ``ValueError`` if the sensor is saturated with
         ``raw=False``.
@@ -68,7 +68,7 @@ TSL2561
         up to the user to make sure the sensor had enough time to make the
         measurement.
 
-    .. method:: interrupt(cycles=None, min_value=None, max_value=None)
+    .. method:: interrupt([cycles], [min_value], [max_value])
 
         Get or set the interrupt settings.
 

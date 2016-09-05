@@ -46,7 +46,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Adafruit MicroPython TSL2561'
+project = u'Adafruit MicroPython TSL2561 Library'
 copyright = u'2016, Radomir Dopieralski'
 
 # The version info for the project you're documenting, acts as replacement for
