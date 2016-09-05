@@ -153,7 +153,7 @@ class TSL2561:
             return broadband, ir
         return self._lux((broadband, ir))
 
-    def interrupt(self, cycles=None, min_value=None, max_value=None):
+    def threshold(self, cycles=None, min_value=None, max_value=None):
         if min_value is None and max_value is None and cycles is None:
             min_value = self._register16(_REGISTER_THRESHHOLD_MIN)
             max_value = self._register16(_REGISTER_THRESHHOLD_MAX)
@@ -177,7 +177,9 @@ class TSL2561:
                     min(15, max(0, int(cycles))) | _INTERRUPT_LEVEL)
         self.active(was_active)
 
-    def clear_interrupt(self):
+    def interrupt(self, value):
+        if value or value is None:
+            raise ValueError("can only clear the interrupt")
         self.i2c.writeto_mem(self.address,
             _CLEAR_BIT | _REGISTER_CONTROL, b'\x00')
 

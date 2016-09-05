@@ -45,7 +45,7 @@ TSL2561
         Return the internal ID of the sensor, describing its model and
         revision number.
 
-    .. method:: read([autogain], [raw])
+    .. method:: read([autogain][, raw])
 
         Read a measurement from the sensor.
 
@@ -68,7 +68,7 @@ TSL2561
         up to the user to make sure the sensor had enough time to make the
         measurement.
 
-    .. method:: interrupt([cycles], [min_value], [max_value])
+    .. method:: threshold([cycles] [, min_value][, max_value])
 
         Get or set the interrupt settings.
 
@@ -89,7 +89,7 @@ TSL2561
 
         Note that for the interrupt pin to work, the sensor must stay active.
 
-    .. method:: clear_interrupt()
+    .. method:: interrupt(False)
 
         Clears the interrupt state, bringing the ``Int`` pin back to neutral.
 

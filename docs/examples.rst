@@ -35,10 +35,10 @@ To use the interrupt pin (connected to ``gpio0`` here)::
 
     def handler(pin):
         print("interrupt!")
-        sensor.clear_interrupt()
+        sensor.interrupt(False)
 
     int_pin = Pin(0, Pin.IN, Pin.PULL_UP)
     int_pin.irq(handler=handler, trigger=Pin.IRQ_FALLING)
     sensor.active(True)
-    sensor.interrupt(1, 10000, 30000)
+    sensor.threshold(1, 10000, 30000)
 
