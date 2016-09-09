@@ -2,7 +2,7 @@ from distutils.core import setup
 
 
 setup(
-    name='Adafruit-upy_tsl2561',
+    name='micropython-adafruit-tsl2561',
     py_modules=['tsl2561'],
     version="1.0",
     description="Driver for MicroPython for the tsl2561 light sensor.",
