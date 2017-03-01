@@ -14,7 +14,7 @@ Now, to make basic measurement::
     import tsl2561
     from machine import I2C, Pin
     i2c = I2C(Pin(5), Pin(4))
-    sensor = tsl256.TSL2561(i2c)
+    sensor = tsl2561.TSL2561(i2c)
     print(sensor.read())
 
 To perform continuous measurement::
