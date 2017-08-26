@@ -4,7 +4,6 @@ import ustruct
 
 _COMMAND_BIT = const(0x80)
 _WORD_BIT = const(0x20)
-_CLEAR_BIT = const(0x40)
 
 _REGISTER_CONTROL = const(0x00)
 _REGISTER_TIMING = const(0x01)
@@ -180,8 +179,7 @@ class TSL2561:
     def interrupt(self, value):
         if value or value is None:
             raise ValueError("can only clear the interrupt")
-        self.i2c.writeto_mem(self.address,
-            _CLEAR_BIT | _REGISTER_CONTROL, b'\x00')
+        self.i2c.writeto(self.address, b'\x40')
 
 
 # Those packages are identical.
